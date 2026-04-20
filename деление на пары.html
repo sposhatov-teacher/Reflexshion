@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Деление на пары - Информатика</title>
+    <style>
+        :root {
+            --bg-color: #f0f2f5;
+            --panel-bg: #ffffff;
+            --accent-color: #4a90e2;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            overflow: hidden; /* Без прокрутки */
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Верхняя панель управления */
+        .controls {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: var(--panel-bg);
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 10px;
+        }
+
+        input { width: 50px; padding: 5px; border-radius: 5px; border: 1px solid #ccc; }
+        button { padding: 8px 15px; cursor: pointer; background: var(--accent-color); color: white; border: none; border-radius: 8px; font-weight: bold; }
+        button:hover { opacity: 0.9; }
+
+        /* Средняя часть: Списки и Эмодзи */
+        .workspace {
+            display: flex;
+            flex: 1;
+            gap: 20px;
+            min-height: 0; /* Важно для flex-контейнеров */
+            margin-bottom: 10px;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 10px;
+            overflow-y: auto;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+
+        #names-column { width: 25%; }
+        #emoji-column { width: 75%; display: flex; flex-wrap: wrap; align-content: flex-start; gap: 10px; }
+
+        .draggable-name {
+            padding: 8px;
+            margin: 5px 0;
+            background: #e1e8ed;
+            border: 2px dashed #999;
+            border-radius: 6px;
+            cursor: move;
+            text-align: center;
+            font-size: 14px;
+        }
+
+        .emoji-slot {
+            width: 100px;
+            height: 80px;
+            border: 2px solid #eee;
+            border-radius: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #fafafa;
+            transition: all 0.3s;
+        }
+
+        .emoji-icon {
+            font-size: 40px; /* Большой размер (около 15мм+) */
+            filter: drop-shadow(2px 4px 6px rgba(0,0,0,0.1));
+            user-select: none;
+        }
+
+        .attached-name {
+            background: var(--accent-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            margin-top: 5px;
+            width: 90%;
+            text-align: center;
+            overflow: hidden;
+            white-space: nowrap;
+        }
+
+        /* Нижняя часть: Результат деления */
+        .result-area {
+            height: 33vh;
+            background: #34495e;
+            border-radius: 12px;
+            padding: 15px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: center;
+            gap: 20px;
+            color: white;
+        }
+
+        .pair-box {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 15px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            border: 1px solid rgba(255,255,255,0.2);
+        }
+
+        .pair-item { text-align: center; }
+        .pair-emoji { font-size: 50px; }
+        .pair-name { font-size: 16px; font-weight: bold; margin-top: 5px; }
+        .vs { font-size: 24px; font-weight: bold; color: #f1c40f; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="controls">
+        <label>👦 Мальчики: <input type="number" id="boys-count" value="5" min="0" max="20"></label>
+        <label>👧 Девочки: <input type="number" id="girls-count" value="5" min="0" max="20"></label>
+        <button onclick="initClass()">Создать класс</button>
+        <button onclick="generatePairs()" style="background: #27ae60;">Разделить на пары</button>
+    </div>
+
+    <div class="workspace">
+        <div id="names-column" class="panel">
+            <h4 style="margin:0 0 10px 0">Ученики (перетащите на эмодзи)</h4>
+            <div id="names-list"></div>
+        </div>
+
+        <div id="emoji-column" class="panel">
+            </div>
+    </div>
+
+    <div id="result-area" class="result-area">
+        <div style="opacity: 0.5;">Здесь появятся пары после нажатия кнопки</div>
+    </div>
+</div>
+
+<script>
+    const boyEmojis = ['👦', '👨‍💻', '🙋‍♂️', '😎', '🤩', '🤖', '👾', '🚀', '⚽', '🛹'];
+    const girlEmojis = ['👧', '👩‍💻', '🙋‍♀️', '🌸', '✨', '🎨', '🦄', '🌈', '🍭', '🐱'];
+    
+    let assignedData = []; // Хранит связи {emoji, name, type}
+
+    function initClass() {
+        const boys = parseInt(document.getElementById('boys-count').value);
+        const girls = parseInt(document.getElementById('girls-count').value);
+        const total = boys + girls;
+        
+        const namesList = document.getElementById('names-list');
+        const emojiColumn = document.getElementById('emoji-column');
+        const resultArea = document.getElementById('result-area');
+        
+        namesList.innerHTML = '';
+        emojiColumn.innerHTML = '';
+        resultArea.innerHTML = '<div style="opacity: 0.5;">Распределите имена и нажмите "Разделить на пары"</div>';
+        assignedData = [];
+
+        // Создаем имена (заглушки)
+        for (let i = 1; i <= total; i++) {
+            const div = document.createElement('div');
+            div.className = 'draggable-name';
+            div.draggable = true;
+            div.innerText = `Ученик ${i}`;
+            div.id = `student-${i}`;
+            div.ondragstart = (e) => e.dataTransfer.setData('text', e.target.id);
+            namesList.appendChild(div);
+        }
+
+        // Создаем слоты для эмодзи
+        createEmojiSlots(boys, boyEmojis, 'boy');
+        createEmojiSlots(girls, girlEmojis, 'girl');
+    }
+
+    function createEmojiSlots(count, emojiPool, type) {
+        const container = document.getElementById('emoji-column');
+        for (let i = 0; i < count; i++) {
+            const emoji = emojiPool[i % emojiPool.length];
+            const slot = document.createElement('div');
+            slot.className = 'emoji-slot';
+            slot.innerHTML = `<span class="emoji-icon">${emoji}</span>`;
+            
+            // События Drag & Drop
+            slot.ondragover = (e) => e.preventDefault();
+            slot.ondrop = (e) => {
+                e.preventDefault();
+                const studentId = e.dataTransfer.getData('text');
+                const studentEl = document.getElementById(studentId);
+                
+                // Эффект прилипания
+                let nameLabel = slot.querySelector('.attached-name');
+                if (!nameLabel) {
+                    nameLabel = document.createElement('div');
+                    nameLabel.className = 'attached-name';
+                    slot.appendChild(nameLabel);
+                }
+                nameLabel.innerText = studentEl.innerText;
+                
+                // Сохраняем данные
+                const index = assignedData.findIndex(d => d.slot === slot);
+                const data = { slot, emoji, name: studentEl.innerText, type };
+                if (index > -1) assignedData[index] = data; 
+                else assignedData.push(data);
+
+                studentEl.style.opacity = '0.4';
+                studentEl.draggable = false;
+            };
+            container.appendChild(slot);
+        }
+    }
+
+    function generatePairs() {
+        if (assignedData.length < 2) {
+            alert("Сначала прикрепите хотя бы 2 имени к эмодзи!");
+            return;
+        }
+
+        const resultArea = document.getElementById('result-area');
+        resultArea.innerHTML = '';
+        
+        // Перемешиваем копию данных
+        let shuffled = [...assignedData].sort(() => Math.random() - 0.5);
+        
+        for (let i = 0; i < shuffled.length; i += 2) {
+            if (shuffled[i + 1]) {
+                const pair = document.createElement('div');
+                pair.className = 'pair-box';
+                pair.innerHTML = `
+                    <div class="pair-item">
+                        <div class="pair-emoji">${shuffled[i].emoji}</div>
+                        <div class="pair-name">${shuffled[i].name}</div>
+                    </div>
+                    <div class="vs"> И </div>
+                    <div class="pair-item">
+                        <div class="pair-emoji">${shuffled[i+1].emoji}</div>
+                        <div class="pair-name">${shuffled[i+1].name}</div>
+                    </div>
+                `;
+                resultArea.appendChild(pair);
+            } else {
+                // Если нечетное количество
+                const lone = document.createElement('div');
+                lone.className = 'pair-box';
+                lone.style.border = '1px dashed gold';
+                lone.innerHTML = `
+                    <div class="pair-item">
+                        <div class="pair-emoji">${shuffled[i].emoji}</div>
+                        <div class="pair-name">${shuffled[i].name}</div>
+                    </div>
+                    <div style="margin-left:10px; color: gold">В группу к паре №1</div>
+                `;
+                resultArea.appendChild(lone);
+            }
+        }
+    }
+
+    // Инициализация при загрузке
+    window.onload = initClass;
+</script>
+
+</body>
+</html>
