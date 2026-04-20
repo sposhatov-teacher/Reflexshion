@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рефлексия: Программирование</title>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.17.1/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg-color: #f0f4f8;
+            --neon-green: #39ff14;
+            --neon-red: #ff3131;
+            --neon-yellow: #fefe33;
+            --accent-blue: #00d2ff;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            background-image: radial-gradient(#d1d9e6 1px, transparent 1px);
+            background-size: 20px 20px;
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Левая сторона: Сетка */
+        .grid-container {
+            width: 50%;
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            grid-template-rows: repeat(5, 1fr);
+            gap: 15px;
+            padding: 20px;
+            box-sizing: border-box;
+            background: rgba(255, 255, 255, 0.5);
+            border-right: 3px dashed var(--accent-blue);
+        }
+
+        .q-btn {
+            background: #333;
+            border: 2px solid var(--accent-blue);
+            border-radius: 12px;
+            cursor: pointer;
+            transition: 0.3s;
+            box-shadow: 0 0 10px rgba(0, 210, 255, 0.3);
+        }
+
+        .q-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px var(--accent-blue);
+        }
+
+        .q-btn:disabled {
+            background: #ccc;
+            border-color: #999;
+            cursor: not-allowed;
+            box-shadow: none;
+        }
+
+        /* Правая сторона: Стена ответов */
+        .wall-container {
+            width: 50%;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: white;
+        }
+
+        .answer-card {
+            padding: 15px;
+            border-radius: 10px;
+            border: 2px solid transparent;
+            animation: fadeIn 0.5s ease;
+            color: #1a1a1a;
+            font-weight: 500;
+        }
+
+        .answer-card.green { border-color: var(--neon-green); box-shadow: 0 0 10px var(--neon-green); background: #eaffea; }
+        .answer-card.red { border-color: var(--neon-red); box-shadow: 0 0 10px var(--neon-red); background: #ffeaea; }
+        .answer-card.yellow { border-color: var(--neon-yellow); box-shadow: 0 0 10px var(--neon-yellow); background: #ffffea; }
+
+        .answer-card b { display: block; color: #555; font-size: 0.8em; margin-bottom: 5px; }
+
+        /* Модальное окно */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.7);
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            width: 400px;
+            text-align: center;
+            border: 4px solid var(--accent-blue);
+        }
+
+        textarea {
+            width: 100%;
+            height: 80px;
+            margin: 15px 0;
+            border-radius: 10px;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .mood-box {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+        }
+
+        .mood-btn {
+            width: 40px; height: 40px; border-radius: 50%; border: none; cursor: pointer;
+        }
+
+        .btn-send {
+            background: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .reset-btn {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            background: #ff4757;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            opacity: 0.5;
+        }
+        .reset-btn:hover { opacity: 1; }
+
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <div class="grid-container" id="buttonGrid">
+        </div>
+
+    <div class="wall-container" id="answerWall">
+        <h2 style="text-align: center; color: var(--accent-blue);">Стена ответов (Live)</h2>
+    </div>
+
+    <div id="modal">
+        <div class="modal-content">
+            <h3 id="questionText">Вопрос...</h3>
+            <textarea id="userAnswer" placeholder="Твой ответ (код или мысль)..."></textarea>
+            <p>Твое настроение:</p>
+            <div class="mood-box">
+                <button class="mood-btn" style="background: var(--neon-green);" onclick="selectMood('green')"></button>
+                <button class="mood-btn" style="background: var(--neon-yellow);" onclick="selectMood('yellow')"></button>
+                <button class="mood-btn" style="background: var(--neon-red);" onclick="selectMood('red')"></button>
+            </div>
+            <button class="btn-send" onclick="sendData()">ОТПРАВИТЬ</button>
+        </div>
+    </div>
+
+    <button class="reset-btn" onclick="resetAll()">Сбросить всё</button>
+
+    <script>
+        // --- КОНФИГУРАЦИЯ FIREBASE (Вставь свои данные сюда) ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyB2QCUpOszGg0uNDUSDZmNeVvNCEcip_O4",
+            authDomain: "reflexion-4591f.firebaseapp.com",
+            
+            projectId: "reflexion-4591f",
+            storageBucket: "reflexion-4591f.firebasestorage.app",
+            messagingSenderId: "231635021622",
+            appId: "1:231635021622:web:1164c3fc848a0e2cb7cd97",
+	    measurementId: "G-GMWSEV1PH1"
+        };
+        
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        const questions = [
+            "Что сегодня было самым сложным в алгоритме?",
+            "Какой индекс (первый или второй) обычно отвечает за номер строки в коде?",
+            "Опиши тему урока одним словом.",
+            "Где в жизни пригодится текущая тема?",
+            "Твое главное открытие за 40 минут?",
+            "Что было самым сложным в понимании вложенных циклов?",
+            "Что сегодня на уроке было для тебя «легкой прогулкой»?",
+            "Оцени чистоту своего сегодняшнего 'кода' знаний по 100 бальной шкале.",
+            "Что бы ты погуглил после этого урока?",
+            "Какое задание заставило тебя по-настоящему понервничать?",
+            "Если бы ты был элементом массива, то под каким индексом ты бы сегодня находился и почему?",
+            "Какую оценку за сегодняшнюю практику ты бы поставил сам себе и за что?",
+            "Кому из одноклассников ты бы сказал спасибо за урок?",
+            "Было ли тебе комфортно работать в том темпе, который задал учитель?",
+            "Что в сегодняшней теме вызвало у тебя наибольший интерес?",
+            "Над чем ты еще поработаешь дома по теме урока?",
+            "Какой момент урока запомнился лучше всего и почему?",
+            "Что ты сможешь сам объяснить другому из сегодняшнего этого урока?"
+
+        ];
+
+        let selectedBtnIndex = null;
+        let selectedMood = 'green';
+
+        // Создание сетки 5x5
+        const grid = document.getElementById('buttonGrid');
+        for (let i = 0; i < 25; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'q-btn';
+            btn.id = 'btn-' + i;
+            btn.onclick = () => openModal(i);
+            grid.appendChild(btn);
+        }
+
+        function openModal(index) {
+            selectedBtnIndex = index;
+            document.getElementById('questionText').innerText = questions[index];
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function selectMood(color) {
+            selectedMood = color;
+            document.querySelector('.modal-content').style.borderColor = `var(--neon-${color})`;
+        }
+
+        function sendData() {
+            const text = document.getElementById('userAnswer').value;
+            if (!text) return alert("Напиши хоть что-нибудь!");
+
+            const data = {
+                q: questions[selectedBtnIndex],
+                a: text,
+                mood: selectedMood,
+                btnIndex: selectedBtnIndex,
+                timestamp: Date.now()
+            };
+
+            // Отправка в Firebase
+            db.ref('responses').push(data);
+            db.ref('usedButtons/' + selectedBtnIndex).set(true);
+
+            // Закрыть окно
+            document.getElementById('modal').style.display = 'none';
+            document.getElementById('userAnswer').value = '';
+        }
+
+        // Слушатель базы данных для обновления в реальном времени
+        db.ref('responses').on('value', (snapshot) => {
+            const wall = document.getElementById('answerWall');
+            wall.innerHTML = '<h2 style="text-align: center; color: var(--accent-blue);">Стена ответов (Live)</h2>';
+            const data = snapshot.val();
+            if (data) {
+                Object.values(data).reverse().forEach(item => {
+                    const card = document.createElement('div');
+                    card.className = `answer-card ${item.mood}`;
+                    card.innerHTML = `<b>${item.q}</b>${item.a}`;
+                    wall.appendChild(card);
+                });
+            }
+        });
+
+        db.ref('usedButtons').on('value', (snapshot) => {
+            const used = snapshot.val();
+            if (used) {
+                Object.keys(used).forEach(idx => {
+                    const btn = document.getElementById('btn-' + idx);
+                    if (btn) btn.disabled = true;
+                });
+            } else {
+                // Если база кнопок пуста (сброс)
+                document.querySelectorAll('.q-btn').forEach(b => b.disabled = false);
+            }
+        });
+
+        function resetAll() {
+            if (confirm("Удалить все ответы?")) {
+                db.ref('responses').remove();
+                db.ref('usedButtons').remove();
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
